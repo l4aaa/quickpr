@@ -4,15 +4,27 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      nuget:
+        patterns: ["*"]
   - package-ecosystem: npm
     directory: /web
     schedule:
       interval: weekly
+    groups:
+      npm:
+        patterns: ["*"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
   - package-ecosystem: docker
     directories: [/src/Api, /src/Worker, /web]
     schedule:
       interval: weekly
+    groups:
+      docker:
+        patterns: ["*"]
