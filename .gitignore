@@ -3,6 +3,9 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
+# GitHub App private keys
+*.pem
+
 # dotenv files
 .env
 
