@@ -2,7 +2,7 @@
 
 Reviews every pull request on a local LLM and learns from developer feedback. A GitHub App plus a web dashboard: each opened or updated PR is reviewed by a small local model through Ollama, which posts line-level comments and improves from the feedback developers give on them.
 
-See [docs/spec.md](docs/spec.md) for the specification.
+See [docs/spec.md](docs/spec.md) for the specification and [docs/development.md](docs/development.md) for machine setup, the GitHub App and local webhooks.
 
 ## Stack
 
