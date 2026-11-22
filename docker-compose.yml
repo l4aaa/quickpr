@@ -1,0 +1,106 @@
+x-app-env: &app-env
+  ConnectionStrings__Postgres: Host=postgres;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+  ConnectionStrings__Redis: redis:6379
+  ConnectionStrings__RabbitMq: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672
+  Ollama__BaseUrl: http://ollama:11434
+  Ollama__ReviewModel: ${OLLAMA_REVIEW_MODEL}
+  Ollama__EmbedModel: ${OLLAMA_EMBED_MODEL}
+  GitHub__AppId: ${GITHUB_APP_ID}
+  GitHub__PrivateKeyPath: ${GITHUB_APP_PRIVATE_KEY_PATH}
+  GitHub__WebhookSecret: ${GITHUB_WEBHOOK_SECRET}
+  GitHub__ClientId: ${GITHUB_CLIENT_ID}
+  GitHub__ClientSecret: ${GITHUB_CLIENT_SECRET}
+
+x-app-deps: &app-deps
+  postgres: { condition: service_healthy }
+  redis: { condition: service_healthy }
+  rabbitmq: { condition: service_healthy }
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: src/Api/Dockerfile
+    environment: *app-env
+    depends_on: *app-deps
+
+  worker:
+    build:
+      context: .
+      dockerfile: src/Worker/Dockerfile
+    environment: *app-env
+    depends_on: *app-deps
+
+  web:
+    build: web
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+  postgres:
+    image: pgvector/pgvector:pg19
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:8.10
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:4.4-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      retries: 10
+
+  ollama:
+    image: ollama/ollama
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: 2
+      OLLAMA_KEEP_ALIVE: 24h
+    volumes:
+      - ollama-data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      retries: 10
+
+  ollama-pull:
+    image: ollama/ollama
+    environment:
+      OLLAMA_HOST: ollama:11434
+    entrypoint: ["/bin/sh", "-c", "ollama pull ${OLLAMA_REVIEW_MODEL} && ollama pull ${OLLAMA_EMBED_MODEL}"]
+    depends_on:
+      ollama: { condition: service_healthy }
+    restart: "no"
+
+volumes:
+  postgres-data:
+  rabbitmq-data:
+  ollama-data:
